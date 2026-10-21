@@ -6,30 +6,42 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/seguridad.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = trim($_POST['nombre']);
-    $correo = trim($_POST['correo']);
-    $password = trim($_POST['password']);
-    $rol = 'abogado';
+    $nombre    = trim($_POST['nombre']);
+    $correo    = trim($_POST['correo']);
+    $password  = trim($_POST['password']);
+    $pregunta  = $_POST['pregunta'] ?? '';
+    $respuesta = normalizar_respuesta($_POST['respuesta'] ?? '');
+    $rol       = 'abogado';
 
-    if (!empty($nombre) && !empty($correo) && !empty($password)) {
+    if (empty($nombre) || empty($correo) || empty($password) || empty($respuesta)) {
+        $error = "Por favor, llene todos los campos.";
+    } elseif (strlen($password) < 8) {
+        $error = "La contraseña debe tener mínimo 8 caracteres.";
+    } elseif (!in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
+        $error = "Seleccione una pregunta de seguridad válida.";
+    } else {
         try {
-            $stmt = $conexion->prepare("INSERT INTO usuarios (nombre, correo, password, rol) VALUES (:nombre, :correo, :password, :rol)");
+            $stmt = $conexion->prepare(
+                "INSERT INTO usuarios (nombre, correo, password, rol, pregunta_seguridad, respuesta_seguridad)
+                 VALUES (:nombre, :correo, :password, :rol, :pregunta, :respuesta)"
+            );
             $stmt->execute([
-                'nombre'   => $nombre,
-                'correo'   => $correo,
-                'password' => $password,
-                'rol'      => $rol
+                'nombre'    => $nombre,
+                'correo'    => $correo,
+                'password'  => password_hash($password, PASSWORD_DEFAULT),
+                'rol'       => $rol,
+                'pregunta'  => $pregunta,
+                'respuesta' => password_hash($respuesta, PASSWORD_DEFAULT)
             ]);
             header("Location: panel.php");
             exit();
         } catch (PDOException $e) {
             $error = "Error al registrar el abogado. Es posible que el correo ya exista.";
         }
-    } else {
-        $error = "Por favor, llene todos los campos.";
     }
 }
 ?>
@@ -132,6 +144,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i class="fa-solid fa-lock"></i>
                             <input type="password" name="password" required placeholder="Mínimo 8 caracteres">
                             <i class="fa-regular fa-eye position-absolute" style="right: 1rem; color: #9ca3af; pointer-events: none;"></i>
+                        </div>
+                    </div>
+
+                                        <div class="form-group full-width">
+                        <label>Pregunta de Seguridad</label>
+                        <div class="input-with-icon">
+                            <i class="fa-solid fa-circle-question"></i>
+                            <select name="pregunta" required>
+                                <option value="">-- Seleccione una pregunta --</option>
+                                <?php foreach (PREGUNTAS_SEGURIDAD as $p): ?>
+                                    <option value="<?php echo htmlspecialchars($p); ?>"><?php echo htmlspecialchars($p); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <i class="fa-solid fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Respuesta de Seguridad</label>
+                        <div class="input-with-icon">
+                            <i class="fa-solid fa-key"></i>
+                            <input type="text" name="respuesta" required placeholder="Para recuperar su contraseña">
                         </div>
                     </div>
 

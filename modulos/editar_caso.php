@@ -229,7 +229,6 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
                     </div>
                 </form>
                 <div class="danger-zone mt-5">
-                    </div>
                     <form action="editar_caso.php?id=<?php echo $caso['id']; ?>" method="POST" onsubmit="return confirm('¿Está seguro de eliminar definitivamente este caso?');">
                         <button type="submit" name="accion_eliminar" class="btn btn-danger d-flex align-items-center gap-2 px-4 py-2" style="background-color: #ef4444; border: none;">
                             <i class="fa-solid fa-trash-can"></i> Eliminar Caso Definitivamente

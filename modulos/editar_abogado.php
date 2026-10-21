@@ -6,6 +6,7 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/seguridad.php';
 $error = '';
 $id_abogado = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null;
 
@@ -23,35 +24,42 @@ if ($id_abogado && isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
 
 // proceso de actualizacion
 if ($id_abogado && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['accion'])) {
-    $nombre = trim($_POST['nombre']);
-    $correo = trim($_POST['correo']);
-    $password = trim($_POST['password']);
+    $nombre    = trim($_POST['nombre']);
+    $correo    = trim($_POST['correo']);
+    $password  = trim($_POST['password']);
+    $pregunta  = $_POST['pregunta'] ?? '';
+    $respuesta = normalizar_respuesta($_POST['respuesta'] ?? '');
 
-    if (!empty($nombre) && !empty($correo)) {
+    if (empty($nombre) || empty($correo)) {
+        $error = "Nombre y correo son obligatorios.";
+    } elseif (!empty($password) && strlen($password) < 8) {
+        $error = "La nueva contraseña debe tener mínimo 8 caracteres.";
+    } else {
         try {
+            $sql = "UPDATE usuarios SET nombre = :nombre, correo = :correo";
+            $params = ['nombre' => $nombre, 'correo' => $correo, 'id' => $id_abogado];
+
             if (!empty($password)) {
-                $stmt = $conexion->prepare("UPDATE usuarios SET nombre = :nombre, correo = :correo, password = :password WHERE id = :id AND rol = 'abogado'");
-                $stmt->execute([
-                    'nombre'   => $nombre,
-                    'correo'   => $correo,
-                    'password' => $password,
-                    'id'       => $id_abogado
-                ]);
-            } else {
-                $stmt = $conexion->prepare("UPDATE usuarios SET nombre = :nombre, correo = :correo WHERE id = :id AND rol = 'abogado'");
-                $stmt->execute([
-                    'nombre' => $nombre,
-                    'correo' => $correo,
-                    'id'     => $id_abogado
-                ]);
+                $sql .= ", password = :password";
+                $params['password'] = password_hash($password, PASSWORD_DEFAULT);
             }
+
+            // La pregunta y la respuesta solo se cambian si se escribe una respuesta nueva
+            if (!empty($respuesta) && in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
+                $sql .= ", pregunta_seguridad = :pregunta, respuesta_seguridad = :respuesta";
+                $params['pregunta']  = $pregunta;
+                $params['respuesta'] = password_hash($respuesta, PASSWORD_DEFAULT);
+            }
+
+            $sql .= " WHERE id = :id AND rol = 'abogado'";
+            $stmt = $conexion->prepare($sql);
+            $stmt->execute($params);
+
             header("Location: editar_abogado.php?id=" . $id_abogado);
             exit();
         } catch (PDOException $e) {
             $error = "Error al actualizar la informacion.";
         }
-    } else {
-        $error = "Nombre y correo son obligatorios.";
     }
 }
 
@@ -193,6 +201,31 @@ if ($id_abogado) {
                         <!--Campo de contraseña  -->
                         <div class="form-group full-width mt-2">
                             <label>Contraseña (dejar en blanco para mantener la actual)</label>
+
+                                                    <div class="form-row mt-2">
+                            <div class="form-group">
+                                <label>Pregunta de Seguridad</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-circle-question"></i>
+                                    <select name="pregunta">
+                                        <?php foreach (PREGUNTAS_SEGURIDAD as $p): ?>
+                                            <option value="<?php echo htmlspecialchars($p); ?>" <?php echo ($abogado['pregunta_seguridad'] === $p) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($p); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down select-arrow"></i>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nueva Respuesta (opcional)</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-key"></i>
+                                    <input type="text" name="respuesta" placeholder="Dejar en blanco para mantener la actual">
+                                </div>
+                            </div>
+                        </div>
+
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-lock"></i>
                                 <input type="password" name="password" placeholder="Nueva contraseña (opcional)">

@@ -5,6 +5,21 @@ if (!isset($_SESSION['usuario_id'])) {
     exit();
 }
 
+// Despachador: cada perfil va a su interfaz
+if ($_SESSION['usuario_rol'] === 'abogado') {
+    header("Location: panel_abogado.php");
+    exit();
+}
+if ($_SESSION['usuario_rol'] === 'cliente') {
+    header("Location: panel_cliente.php");
+    exit();
+}
+// Cualquier rol que no sea admin queda fuera de este panel
+if ($_SESSION['usuario_rol'] !== 'admin') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
 require_once '../config/conexion.php';
 
 $sql = "SELECT c.id, c.titulo, c.estado, c.fecha_creacion, 

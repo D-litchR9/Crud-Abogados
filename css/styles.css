@@ -330,6 +330,7 @@ a { text-decoration: none; }
     justify-content: center;
     font-weight: bold;
 }
+
 /* --- FORMULARIO CREAR CASO --- */
 .form-layout {
     display: flex;
@@ -370,16 +371,16 @@ a { text-decoration: none; }
     color: var(--text-white);
 }
 
-.form-title-text p { 
-    font-size: 0.875rem; 
-    color: var(--text-muted); 
+.form-title-text p {
+    font-size: 0.875rem;
+    color: var(--text-muted);
 }
 
 /* --- CAMPOS DEL FORMULARIO --- */
-.custom-form { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 1.5rem; 
+.custom-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .form-row {
@@ -452,6 +453,7 @@ a { text-decoration: none; }
     resize: vertical;
     min-height: 100px;
 }
+
 .danger-zone {
     display: flex;
     justify-content: space-between;
@@ -472,4 +474,84 @@ a { text-decoration: none; }
     align-items: center;
     justify-content: center;
     font-size: 1.25rem;
+}
+
+/* --- AUTENTICACIÓN (index / login / registro / recuperación) --- */
+.auth-layout {
+    align-items: center;
+    padding-top: 2rem;
+}
+
+.auth-wrapper { max-width: 460px; }
+.auth-wrapper.wide { max-width: 520px; }
+
+.auth-brand {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.auth-brand .logo-icon {
+    margin: 0 auto 1rem auto;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.5rem;
+}
+
+.auth-brand h1,
+.auth-brand h2 {
+    font-family: var(--font-serif);
+    color: var(--text-white);
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.auth-brand p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.auth-link {
+    color: var(--accent-blue);
+    font-size: 0.875rem;
+    transition: color 0.2s;
+}
+
+.auth-link:hover { color: var(--accent-gold); }
+
+.auth-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.session-box {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+/* --- TARJETAS ESTÁTICAS (paneles de abogado y cliente) --- */
+.action-card.static { cursor: default; }
+.action-card.static:hover { background-color: var(--bg-card); }
+
+.empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.case-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-top: 0.25rem;
 }

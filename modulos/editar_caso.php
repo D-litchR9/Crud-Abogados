@@ -8,14 +8,15 @@ if (!isset($_SESSION['usuario_rol']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 
 // Verificar que se haya enviado un ID valido por la URL
-if (!isset($_GET['id']) || empty($_GET['id'])) {
+if (!isset($_GET['id']) || !ctype_digit($_GET['id'])) {
     header("Location: panel.php");
     exit();
 }
-
-$id_caso = $_GET['id'];
+$id_caso = (int)$_GET['id'];
+$error = '';
 
 /* ==========================================================================
    1. ACCION: ELIMINAR CASO (Si se presiona el boton de borrar)
@@ -24,7 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion_eliminar'])) {
     $stmt_del = $conexion->prepare("DELETE FROM casos WHERE id = :id");
     $stmt_del->execute(['id' => $id_caso]);
     
-    header("Location: panel.php?mensaje=eliminado_exitoso");
+    $_SESSION['exito'] = 'Expediente eliminado correctamente.';
+    header("Location: panel.php");
     exit();
 }
 
@@ -32,12 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion_eliminar'])) {
    2. ACCION: ACTUALIZAR CASO (Si se presiona el boton de guardar cambios)
    ========================================================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion_guardar'])) {
-    $titulo = trim($_POST['titulo']);
-    $descripcion = trim($_POST['descripcion']);
-    $estado = $_POST['estado'];
-    $abogado_id = $_POST['usuario_id'];
+    $titulo      = trim($_POST['titulo'] ?? '');
+    $descripcion = trim($_POST['descripcion'] ?? '');
+    $estado      = $_POST['estado'] ?? '';
+    $abogado_id  = $_POST['usuario_id'] ?? '';
 
-    if (!empty($titulo)) {
+    $error = validar_campos([
+        [$titulo,     'texto',  'Título del caso'],
+        [$abogado_id, 'numero', 'Abogado asignado', false],
+    ]);
+    if (!$error && !in_array($estado, ['Abierto', 'En Proceso', 'Cerrado'], true)) {
+        $error = "Seleccione un estado válido.";
+    }
+
+    if (!$error) {
         $stmt_upd = $conexion->prepare("UPDATE casos 
                                         SET titulo = :titulo, 
                                             descripcion = :descripcion, 
@@ -52,7 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion_guardar'])) {
             'id'          => $id_caso
         ]);
 
-        header("Location: panel.php?mensaje=actualizado_exitoso");
+        $_SESSION['exito'] = 'Expediente actualizado correctamente.';
+        header("Location: panel.php");
         exit();
     }
 }
@@ -163,7 +174,7 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
                     </div>
                 </div>
 
-                <form action="editar_caso.php?id=<?php echo $caso['id']; ?>" method="POST" class="custom-form">
+                <form action="editar_caso.php?id=<?php echo $caso['id']; ?>" method="POST" class="custom-form validar-form" novalidate>
                     
                     <!-- Cliente Asociado (Solo lectura) -->
                     <div class="form-group full-width">
@@ -179,7 +190,7 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
                         <label>Título del Caso</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-file-lines"></i>
-                            <input type="text" name="titulo" value="<?php echo htmlspecialchars($caso['titulo']); ?>" required>
+                            <input type="text" name="titulo" value="<?php echo htmlspecialchars($caso['titulo']); ?>" required data-validar="texto" data-label="Título del caso">
                         </div>
                     </div>
 
@@ -188,7 +199,7 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
                             <label>Abogado Asignado</label>
                             <div class="input-with-icon">
                                 <i class="fa-regular fa-user"></i>
-                                <select name="usuario_id">
+                                <select name="usuario_id" data-validar="numero" data-label="Abogado asignado">
                                     <option value="">-- Sin asignar --</option>
                                     <?php foreach ($abogados as $abg): ?>
                                         <option value="<?php echo $abg['id']; ?>" <?php echo ($caso['usuario_id'] == $abg['id']) ? 'selected' : ''; ?>>
@@ -204,7 +215,7 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
                             <label>Estado del Expediente</label>
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-briefcase"></i>
-                                <select name="estado" required>
+                                <select name="estado" required data-validar="requerido" data-label="Estado">
                                     <option value="Abierto" <?php echo ($caso['estado'] === 'Abierto') ? 'selected' : ''; ?>>Abierto</option>
                                     <option value="En Proceso" <?php echo ($caso['estado'] === 'En Proceso') ? 'selected' : ''; ?>>En Proceso</option>
                                     <option value="Cerrado" <?php echo ($caso['estado'] === 'Cerrado') ? 'selected' : ''; ?>>Cerrado</option>
@@ -239,5 +250,6 @@ $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'aboga
             </div>
         </div>
     </main>
+    <?php notificaciones($error); ?>
 </body>
 </html>

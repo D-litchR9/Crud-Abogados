@@ -8,7 +8,8 @@ if (!isset($_SESSION['usuario_rol']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
-
+require_once '../config/validaciones.php';
+$error = '';
 // 1. Cargar abogados disponibles para el select
 $abogados = $conexion->query("SELECT id, nombre FROM usuarios WHERE rol = 'abogado'")->fetchAll();
 
@@ -17,12 +18,18 @@ $clientes = $conexion->query("SELECT id, nombre FROM clientes")->fetchAll();
 
 // 3. Procesar el formulario al enviar
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $titulo = trim($_POST['titulo']);
-    $descripcion = trim($_POST['descripcion']);
-    $abogado_id = $_POST['usuario_id'];
-    $cliente_id = $_POST['cliente_id'];
+    $titulo      = trim($_POST['titulo'] ?? '');
+    $descripcion = trim($_POST['descripcion'] ?? '');
+    $abogado_id  = $_POST['usuario_id'] ?? '';
+    $cliente_id  = $_POST['cliente_id'] ?? '';
 
-    if (!empty($titulo) && !empty($cliente_id)) {
+    $error = validar_campos([
+        [$titulo,     'texto',  'Título del caso'],
+        [$cliente_id, 'numero', 'Cliente'],
+        [$abogado_id, 'numero', 'Abogado asignado', false],
+    ]);
+
+    if (!$error) {
         $stmt = $conexion->prepare("INSERT INTO casos (titulo, descripcion, usuario_id, cliente_id) VALUES (:titulo, :descripcion, :usuario_id, :cliente_id)");
         $stmt->execute([
             'titulo' => $titulo,
@@ -30,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'usuario_id' => !empty($abogado_id) ? $abogado_id : null,
             'cliente_id' => $cliente_id
         ]);
-
+        $_SESSION['exito'] = 'Expediente registrado correctamente.';
         header("Location: panel.php");
         exit();
     }
@@ -98,13 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <form action="crear_caso.php" method="POST" class="custom-form">
+                <form action="crear_caso.php" method="POST" class="custom-form validar-form" novalidate>
                     
                     <div class="form-group full-width">
                         <label>Titulo del Caso</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-file-lines"></i>
-                            <input type="text" name="titulo" required placeholder="Ej. Reclamación por incumplimiento contractual">
+                            <input type="text" name="titulo" required data-validar="texto" data-label="Título del caso" placeholder="Ej. Reclamación por incumplimiento contractual">
                         </div>
                     </div>
 
@@ -113,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label>Cliente</label>
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-user-plus"></i>
-                                <select name="cliente_id" required>
+                                <select name="cliente_id" required data-validar="numero" data-label="Cliente">
                                     <option value="">Seleccione un cliente</option>
                                     <?php foreach ($clientes as $cli): ?>
                                         <option value="<?php echo $cli['id']; ?>"><?php echo htmlspecialchars($cli['nombre']); ?></option>
@@ -127,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label>Abogado Asignado </label>
                             <div class="input-with-icon">
                                 <i class="fa-regular fa-user"></i>
-                                <select name="usuario_id">
+                                <select name="usuario_id" data-validar="numero" data-label="Abogado">
                                     <option value="">Sin asignar por el momento</option>
                                     <?php foreach ($abogados as $abg): ?>
                                         <option value="<?php echo $abg['id']; ?>"><?php echo htmlspecialchars($abg['nombre']); ?></option>
@@ -162,5 +169,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
+    <?php notificaciones($error); ?>
 </body>
 </html>

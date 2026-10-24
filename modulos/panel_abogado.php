@@ -10,6 +10,7 @@ if ($_SESSION['usuario_rol'] !== 'abogado') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 
 // Solo los casos asignados a este abogado
 $stmt = $conexion->prepare(

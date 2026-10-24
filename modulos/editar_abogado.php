@@ -7,6 +7,7 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 
 require_once '../config/conexion.php';
 require_once '../config/seguridad.php';
+require_once '../config/validaciones.php';
 $error = '';
 $id_abogado = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null;
 
@@ -15,6 +16,7 @@ if ($id_abogado && isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
     try {
         $stmt = $conexion->prepare("DELETE FROM usuarios WHERE id = :id AND rol = 'abogado' LIMIT 1");
         $stmt->execute(['id' => $id_abogado]);
+        $_SESSION['exito'] = 'Abogado eliminado correctamente.';
         header("Location: editar_abogado.php");
         exit();
     } catch (PDOException $e) {
@@ -24,17 +26,21 @@ if ($id_abogado && isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
 
 // proceso de actualizacion
 if ($id_abogado && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['accion'])) {
-    $nombre    = trim($_POST['nombre']);
-    $correo    = trim($_POST['correo']);
-    $password  = trim($_POST['password']);
-    $pregunta  = $_POST['pregunta'] ?? '';
-    $respuesta = normalizar_respuesta($_POST['respuesta'] ?? '');
+    $nombre        = trim($_POST['nombre'] ?? '');
+    $correo        = trim($_POST['correo'] ?? '');
+    $password      = trim($_POST['password'] ?? '');
+    $pregunta      = $_POST['pregunta'] ?? '';
+    $respuesta_raw = trim($_POST['respuesta'] ?? '');
+    $respuesta     = normalizar_respuesta($respuesta_raw);
 
-    if (empty($nombre) || empty($correo)) {
-        $error = "Nombre y correo son obligatorios.";
-    } elseif (!empty($password) && strlen($password) < 8) {
-        $error = "La nueva contraseña debe tener mínimo 8 caracteres.";
-    } else {
+    $error = validar_campos([
+        [$nombre,        'letras',       'Nombre'],
+        [$correo,        'email',        'Correo'],
+        [$password,      'password',     'Contraseña', false],
+        [$respuesta_raw, 'alfanumerico', 'Respuesta de seguridad', false],
+    ]);
+
+    if (!$error) {
         try {
             $sql = "UPDATE usuarios SET nombre = :nombre, correo = :correo";
             $params = ['nombre' => $nombre, 'correo' => $correo, 'id' => $id_abogado];
@@ -55,6 +61,7 @@ if ($id_abogado && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['accio
             $stmt = $conexion->prepare($sql);
             $stmt->execute($params);
 
+            $_SESSION['exito'] = 'Abogado actualizado correctamente.';
             header("Location: editar_abogado.php?id=" . $id_abogado);
             exit();
         } catch (PDOException $e) {
@@ -139,13 +146,6 @@ if ($id_abogado) {
                     </div>
                 </div>
 
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert" style="font-size: 0.875rem;">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <?php echo htmlspecialchars($error); ?>
-                    </div>
-                <?php endif; ?>
-
                 <!-- Formulario de Seleccion -->
                 <form method="GET" action="editar_abogado.php" class="custom-form mb-2">
                     <div class="form-group full-width">
@@ -178,14 +178,14 @@ if ($id_abogado) {
                     </div>
 
                     <!-- Formulario de Edicion -->
-                    <form method="POST" action="editar_abogado.php?id=<?php echo $id_abogado; ?>" class="custom-form">
+                    <form method="POST" action="editar_abogado.php?id=<?php echo $id_abogado; ?>" class="custom-form validar-form" novalidate>
                         
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nombre Completo</label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-user"></i>
-                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($abogado['nombre']); ?>" required>
+                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($abogado['nombre']); ?>" required data-validar="letras" data-label="Nombre">
                                 </div>
                             </div>
 
@@ -193,7 +193,7 @@ if ($id_abogado) {
                                 <label>Correo Electrónico</label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-envelope"></i>
-                                    <input type="email" name="correo" value="<?php echo htmlspecialchars($abogado['correo']); ?>" required>
+                                    <input type="email" name="correo" value="<?php echo htmlspecialchars($abogado['correo']); ?>" required data-validar="email" data-label="Correo">
                                 </div>
                             </div>
                         </div>
@@ -221,14 +221,14 @@ if ($id_abogado) {
                                 <label>Nueva Respuesta (opcional)</label>
                                 <div class="input-with-icon">
                                     <i class="fa-solid fa-key"></i>
-                                    <input type="text" name="respuesta" placeholder="Dejar en blanco para mantener la actual">
+                                    <input type="text" name="respuesta" data-validar="alfanumerico" data-label="Respuesta de seguridad" placeholder="Dejar en blanco para mantener la actual">
                                 </div>
                             </div>
                         </div>
 
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-lock"></i>
-                                <input type="password" name="password" placeholder="Nueva contraseña (opcional)">
+                                <input type="password" name="password" data-validar="password" data-label="Contraseña" placeholder="Nueva contraseña (opcional)">
                             </div>
                         </div>
 
@@ -261,5 +261,10 @@ if ($id_abogado) {
             </div>
         </div>
     </main>
+    <?php
+    $exito = $_SESSION['exito'] ?? null;
+    unset($_SESSION['exito']);
+    notificaciones($error, $exito);
+    ?>
 </body>
 </html>

@@ -10,6 +10,7 @@ if ($_SESSION['usuario_rol'] !== 'cliente') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 
 $casos = [];
 $cliente_id = $_SESSION['cliente_id'] ?? null;

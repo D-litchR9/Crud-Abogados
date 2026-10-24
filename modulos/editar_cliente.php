@@ -7,6 +7,7 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 $error = '';
 $id_cliente = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null;
 
@@ -15,6 +16,7 @@ if ($id_cliente && isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
     try {
         $stmt = $conexion->prepare("DELETE FROM clientes WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => $id_cliente]);
+        $_SESSION['exito'] = 'Cliente eliminado correctamente.';
         header("Location: editar_cliente.php");
         exit();
     } catch (PDOException $e) {
@@ -24,11 +26,17 @@ if ($id_cliente && isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
 
 // proceso de actualizacion
 if ($id_cliente && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['accion'])) {
-    $nombre = trim($_POST['nombre']);
-    $telefono = trim($_POST['telefono']);
-    $correo = trim($_POST['correo']);
+    $nombre   = trim($_POST['nombre'] ?? '');
+    $telefono = trim($_POST['telefono'] ?? '');
+    $correo   = trim($_POST['correo'] ?? '');
 
-    if (!empty($nombre)) {
+    $error = validar_campos([
+        [$nombre,   'letras',   'Nombre'],
+        [$correo,   'email',    'Correo',   false],
+        [$telefono, 'telefono', 'Teléfono', false],
+    ]);
+
+    if (!$error) {
         try {
             $stmt = $conexion->prepare("UPDATE clientes SET nombre = :nombre, telefono = :telefono, correo = :correo WHERE id = :id");
             $stmt->execute([
@@ -37,14 +45,13 @@ if ($id_cliente && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['accio
                 'correo'   => $correo,
                 'id'       => $id_cliente
             ]);
+            $_SESSION['exito'] = 'Cliente actualizado correctamente.';
             header("Location: editar_cliente.php?id=" . $id_cliente);
             exit();
         } catch (PDOException $e) {
             $error = "Error al actualizar el cliente.";
         }
-    } else {
-        $error = "El nombre del cliente es obligatorio.";
-    }
+    } 
 }
 
 // Cargar la lista completa de clientes 
@@ -126,13 +133,6 @@ if ($id_cliente) {
                     </div>
                 </div>
 
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert" style="font-size: 0.875rem;">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <?php echo htmlspecialchars($error); ?>
-                    </div>
-                <?php endif; ?>
-
                 <!-- Formulario de Selección -->
                 <form method="GET" action="editar_cliente.php" class="custom-form mb-2">
                     <div class="form-group full-width">
@@ -165,14 +165,14 @@ if ($id_cliente) {
                     </div>
 
                     <!-- Formulario de Edición -->
-                    <form method="POST" action="editar_cliente.php?id=<?php echo $id_cliente; ?>" class="custom-form">
+                    <form method="POST" action="editar_cliente.php?id=<?php echo $id_cliente; ?>" class="custom-form validar-form" novalidate>
                         
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nombre Completo</label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-user"></i>
-                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($cliente['nombre']); ?>" required>
+                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($cliente['nombre']); ?>" required data-validar="letras" data-label="Nombre">
                                 </div>
                             </div>
 
@@ -180,7 +180,7 @@ if ($id_cliente) {
                                 <label>Correo Electrónico</label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-envelope"></i>
-                                    <input type="email" name="correo" value="<?php echo htmlspecialchars($cliente['correo'] ?? ''); ?>">
+                                    <input type="email" name="correo" value="<?php echo htmlspecialchars($cliente['correo'] ?? ''); ?>" data-validar="email" data-label="Correo">
                                 </div>
                             </div>
                         </div>
@@ -189,7 +189,7 @@ if ($id_cliente) {
                             <label>Teléfono de Contacto</label>
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-phone"></i>
-                                <input type="text" name="telefono" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>">
+                                <input type="text" name="telefono" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>" data-validar="telefono" data-label="Teléfono">
                             </div>
                         </div>
 
@@ -220,5 +220,10 @@ if ($id_cliente) {
             </div>
         </div>
     </main>
+    <?php
+    $exito = $_SESSION['exito'] ?? null;
+    unset($_SESSION['exito']);
+    notificaciones($error, $exito);
+    ?>
 </body>
 </html>

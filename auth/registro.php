@@ -2,6 +2,7 @@
 session_start();
 require_once '../config/conexion.php';
 require_once '../config/seguridad.php';
+require_once '../config/validaciones.php';
 
 if (isset($_SESSION['usuario_id'])) {
     header("Location: ../modulos/panel.php");
@@ -14,26 +15,30 @@ $correo = '';
 $pregunta = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre    = trim($_POST['nombre'] ?? '');
-    $correo    = trim($_POST['correo'] ?? '');
-    $password  = trim($_POST['password'] ?? '');
-    $confirmar = trim($_POST['confirmar'] ?? '');
-    $pregunta  = $_POST['pregunta'] ?? '';
-    $respuesta = normalizar_respuesta($_POST['respuesta'] ?? '');
+    $nombre        = trim($_POST['nombre'] ?? '');
+    $correo        = trim($_POST['correo'] ?? '');
+    $password      = trim($_POST['password'] ?? '');
+    $confirmar     = trim($_POST['confirmar'] ?? '');
+    $pregunta      = $_POST['pregunta'] ?? '';
+    $respuesta_raw = trim($_POST['respuesta'] ?? '');
+    $respuesta     = normalizar_respuesta($respuesta_raw);
 
-    if (empty($nombre) || empty($correo) || empty($password) || empty($confirmar)) {
-        $error = "Por favor, llene todos los campos.";
-    } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-        $error = "El correo electrónico no es válido.";
-    } elseif (strlen($password) < 8) {
-        $error = "La contraseña debe tener mínimo 8 caracteres.";
-    } elseif ($password !== $confirmar) {
+    $error = validar_campos([
+        [$nombre,        'letras',       'Nombre'],
+        [$correo,        'email',        'Correo'],
+        [$password,      'password',     'Contraseña'],
+        [$confirmar,     'requerido',    'Confirmar contraseña'],
+        [$respuesta_raw, 'alfanumerico', 'Respuesta de seguridad'],
+    ]);
+
+    if (!$error && $password !== $confirmar) {
         $error = "Las contraseñas no coinciden.";
-    } elseif (!in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
+    }
+    if (!$error && !in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
         $error = "Seleccione una pregunta de seguridad.";
-    } elseif (empty($respuesta)) {
-        $error = "Escriba la respuesta a su pregunta de seguridad.";
-    } else {
+    }
+
+    if (!$error) {
         // Verificar que el correo no exista
         $stmt = $conexion->prepare("SELECT id FROM usuarios WHERE correo = :correo LIMIT 1");
         $stmt->execute(['correo' => $correo]);
@@ -110,13 +115,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="registro.php" method="POST" class="custom-form">
+                <form action="registro.php" method="POST" class="custom-form validar-form" novalidate>
 
                     <div class="form-group">
                         <label>Nombre Completo</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-user"></i>
-                            <input type="text" name="nombre" required value="<?php echo htmlspecialchars($nombre); ?>" placeholder="Ej. Santiago Mendoza Ruiz">
+                            <input type="text" name="nombre" required data-validar="letras" data-label="Nombre" value="<?php echo htmlspecialchars($nombre); ?>" placeholder="Ej. Santiago Mendoza Ruiz">
                         </div>
                     </div>
 
@@ -124,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Correo Electrónico</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-envelope"></i>
-                            <input type="email" name="correo" required value="<?php echo htmlspecialchars($correo); ?>" placeholder="cliente@correo.com">
+                            <input type="email" name="correo" required data-validar="email" data-label="Correo" value="<?php echo htmlspecialchars($correo); ?>" placeholder="cliente@correo.com">
                         </div>
                     </div>
 
@@ -133,14 +138,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label>Contraseña</label>
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-lock"></i>
-                                <input type="password" name="password" required placeholder="Mínimo 8 caracteres">
+                                <input type="password" name="password" required data-validar="password" data-label="Contraseña" placeholder="Mínimo 8 caracteres">
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Confirmar Contraseña</label>
                             <div class="input-with-icon">
                                 <i class="fa-solid fa-lock"></i>
-                                <input type="password" name="confirmar" required placeholder="Repita la contraseña">
+                                <input type="password" name="confirmar" required data-validar="requerido" data-label="Confirmar contraseña" placeholder="Repita la contraseña">
                             </div>
                         </div>
                     </div>
@@ -149,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Pregunta de Seguridad</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-circle-question"></i>
-                            <select name="pregunta" required>
+                            <select name="pregunta" required data-validar="requerido" data-label="Pregunta de seguridad">
                                 <option value="">-- Seleccione una pregunta --</option>
                                 <?php foreach (PREGUNTAS_SEGURIDAD as $p): ?>
                                     <option value="<?php echo htmlspecialchars($p); ?>" <?php echo ($pregunta === $p) ? 'selected' : ''; ?>>
@@ -165,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Respuesta</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-key"></i>
-                            <input type="text" name="respuesta" required placeholder="Le servirá para recuperar su contraseña">
+                            <input type="text" name="respuesta" required data-validar="alfanumerico" data-label="Respuesta" placeholder="Le servirá para recuperar su contraseña">
                         </div>
                     </div>
 
@@ -180,6 +185,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
-
+    <?php notificaciones($error); ?>
+    <script>
+    document.querySelector('.validar-form').addEventListener('submit', function (e) {
+        if (this.password.value !== this.confirmar.value) {
+            e.preventDefault();
+            showToast('Las contraseñas no coinciden.');
+        }
+    });
+    </script>
 </body>
 </html>

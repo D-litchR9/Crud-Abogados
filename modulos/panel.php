@@ -21,6 +21,7 @@ if ($_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 
 $sql = "SELECT c.id, c.titulo, c.estado, c.fecha_creacion, 
                u.nombre AS abogado_nombre, cl.nombre AS cliente_nombre 
@@ -43,7 +44,7 @@ $casos = $stmt->fetchAll();
     <!-- Fuentes e Iconos -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Referencia al archivo CSS (Ajusta la ruta si es necesario) -->
     <link rel="stylesheet" href="../css/styles.css">
 </head>
@@ -246,5 +247,11 @@ $casos = $stmt->fetchAll();
             </div>
         </div>
     </main>
+<?php
+$exito = $_SESSION['exito'] ?? null;
+$error = $_SESSION['error'] ?? null;
+unset($_SESSION['exito'], $_SESSION['error']);
+notificaciones($error, $exito);
+?>
 </body>
 </html>

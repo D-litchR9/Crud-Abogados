@@ -7,23 +7,30 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 
 require_once '../config/conexion.php';
 require_once '../config/seguridad.php';
+require_once '../config/validaciones.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre    = trim($_POST['nombre']);
-    $correo    = trim($_POST['correo']);
-    $password  = trim($_POST['password']);
-    $pregunta  = $_POST['pregunta'] ?? '';
-    $respuesta = normalizar_respuesta($_POST['respuesta'] ?? '');
-    $rol       = 'abogado';
+    $nombre        = trim($_POST['nombre'] ?? '');
+    $correo        = trim($_POST['correo'] ?? '');
+    $password      = trim($_POST['password'] ?? '');
+    $pregunta      = $_POST['pregunta'] ?? '';
+    $respuesta_raw = trim($_POST['respuesta'] ?? '');
+    $respuesta     = normalizar_respuesta($respuesta_raw);
+    $rol           = 'abogado';
 
-    if (empty($nombre) || empty($correo) || empty($password) || empty($respuesta)) {
-        $error = "Por favor, llene todos los campos.";
-    } elseif (strlen($password) < 8) {
-        $error = "La contraseña debe tener mínimo 8 caracteres.";
-    } elseif (!in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
+    $error = validar_campos([
+        [$nombre,        'letras',       'Nombre'],
+        [$correo,        'email',        'Correo'],
+        [$password,      'password',     'Contraseña'],
+        [$respuesta_raw, 'alfanumerico', 'Respuesta de seguridad'],
+    ]);
+
+    if (!$error && !in_array($pregunta, PREGUNTAS_SEGURIDAD, true)) {
         $error = "Seleccione una pregunta de seguridad válida.";
-    } else {
+    }
+
+    if (!$error) {
         try {
             $stmt = $conexion->prepare(
                 "INSERT INTO usuarios (nombre, correo, password, rol, pregunta_seguridad, respuesta_seguridad)
@@ -37,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'pregunta'  => $pregunta,
                 'respuesta' => password_hash($respuesta, PASSWORD_DEFAULT)
             ]);
+        $_SESSION['exito'] = 'Abogado registrado correctamente.';
             header("Location: panel.php");
             exit();
         } catch (PDOException $e) {
@@ -112,21 +120,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <!-- Mostrar mensajes de error de PHP -->
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert" style="font-size: 0.875rem;">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <?php echo htmlspecialchars($error); ?>
-                    </div>
-                <?php endif; ?>
 
-                <form method="POST" action="agregar_abogado.php" class="custom-form">
-                    
+                <form method="POST" action="agregar_abogado.php" class="custom-form validar-form" novalidate>
                     <div class="form-group full-width">
                         <label>Nombre Completo</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-user"></i>
-                            <input type="text" name="nombre" required placeholder="Ej. Andrea Fernandez Lopez">
+                            <input type="text" name="nombre" required data-validar="letras" data-label="Nombre" placeholder="Ej. Andrea Fernandez Lopez">
                         </div>
                     </div>
 
@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Correo Electrónico</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-envelope"></i>
-                            <input type="email" name="correo" required placeholder="abogado@malvadosyasociados.com">
+                            <input type="email" name="correo" required data-validar="email" data-label="Correo" placeholder="abogado@malvadosyasociados.com">
                         </div>
                     </div>
 
@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Contraseña</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-lock"></i>
-                            <input type="password" name="password" required placeholder="Mínimo 8 caracteres">
+                            <input type="password" name="password" required data-validar="password" data-label="Contraseña" placeholder="Mínimo 8 caracteres">
                             <i class="fa-regular fa-eye position-absolute" style="right: 1rem; color: #9ca3af; pointer-events: none;"></i>
                         </div>
                     </div>
@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Pregunta de Seguridad</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-circle-question"></i>
-                            <select name="pregunta" required>
+                            <select name="pregunta" required data-validar="requerido" data-label="Pregunta de seguridad">
                                 <option value="">-- Seleccione una pregunta --</option>
                                 <?php foreach (PREGUNTAS_SEGURIDAD as $p): ?>
                                     <option value="<?php echo htmlspecialchars($p); ?>"><?php echo htmlspecialchars($p); ?></option>
@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Respuesta de Seguridad</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-key"></i>
-                            <input type="text" name="respuesta" required placeholder="Para recuperar su contraseña">
+                            <input type="text" name="respuesta" required data-validar="alfanumerico" data-label="Respuesta de seguridad" placeholder="Para recuperar su contraseña">
                         </div>
                     </div>
 
@@ -188,5 +188,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
+    <?php notificaciones($error); ?>
 </body>
 </html>

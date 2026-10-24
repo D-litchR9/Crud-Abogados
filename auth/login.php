@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 
 // Si ya está logueado, redirigir al despachador de paneles
 if (isset($_SESSION['usuario_id'])) {
@@ -19,10 +20,15 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'ok') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $correo   = trim($_POST['correo']);
-    $password = trim($_POST['password']);
+    $correo   = trim($_POST['correo'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
-    if (!empty($correo) && !empty($password)) {
+    $error = validar_campos([
+        [$correo,   'email',     'Correo'],
+        [$password, 'requerido', 'Contraseña'],
+    ]);
+
+    if (!$error) {
         $stmt = $conexion->prepare("SELECT * FROM usuarios WHERE correo = :correo LIMIT 1");
         $stmt->execute(['correo' => $correo]);
         $usuario = $stmt->fetch();
@@ -40,8 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Credenciales incorrectas.";
         }
-    } else {
-        $error = "Por favor, llenar todos los campos.";
     }
 }
 ?>
@@ -85,13 +89,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="login.php" method="POST" class="custom-form">
+                <form action="login.php" method="POST" class="custom-form validar-form" novalidate>
 
                     <div class="form-group">
                         <label>Correo Electrónico</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-envelope"></i>
-                            <input type="email" name="correo" required placeholder="usuario@correo.com">
+                            <input type="email" name="correo" required data-validar="email" data-label="Correo" placeholder="usuario@correo.com">
                         </div>
                     </div>
 
@@ -99,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Contraseña</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-lock"></i>
-                            <input type="password" name="password" required placeholder="Su contraseña">
+                            <input type="password" name="password" required data-validar="requerido" data-label="Contraseña" placeholder="Su contraseña">
                         </div>
                         <div class="text-end mt-2">
                             <a href="olvide_password.php" class="auth-link">¿Olvidó su contraseña?</a>
@@ -118,6 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
-
+    <?php notificaciones($error, $mensaje); ?>
 </body>
 </html>

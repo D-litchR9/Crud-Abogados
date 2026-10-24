@@ -6,14 +6,21 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'admin') {
 }
 
 require_once '../config/conexion.php';
+require_once '../config/validaciones.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = trim($_POST['nombre']);
-    $telefono = trim($_POST['telefono']);
-    $correo = trim($_POST['correo']);
+    $nombre   = trim($_POST['nombre'] ?? '');
+    $telefono = trim($_POST['telefono'] ?? '');
+    $correo   = trim($_POST['correo'] ?? '');
 
-    if (!empty($nombre)) {
+    $error = validar_campos([
+        [$nombre,   'letras',   'Nombre'],
+        [$correo,   'email',    'Correo',   false],
+        [$telefono, 'telefono', 'Teléfono', false],
+    ]);
+
+    if (!$error) {
         try {
             $stmt = $conexion->prepare("INSERT INTO clientes (nombre, telefono, correo) VALUES (:nombre, :telefono, :correo)");
             $stmt->execute([
@@ -21,13 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'telefono' => $telefono,
                 'correo'   => $correo
             ]);
+            $_SESSION['exito'] = 'Cliente registrado correctamente.';
             header("Location: panel.php");
             exit();
         } catch (PDOException $e) {
             $error = "Error al guardar el cliente.";
         }
-    } else {
-        $error = "El nombre del cliente es obligatorio.";
     }
 }
 ?>
@@ -97,20 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <p class="mb-0 text-muted" style="font-size: 0.875rem;">Complete la información para crear un nuevo perfil en el sistema.</p>
                     </div>
                 </div>
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert" style="font-size: 0.875rem;">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <?php echo htmlspecialchars($error); ?>
-                    </div>
-                <?php endif; ?>
-
-                <form method="POST" action="agregar_cliente.php" class="custom-form">
-                    
+              
+                <form method="POST" action="agregar_cliente.php" class="custom-form validar-form" novalidate>
                     <div class="form-group full-width">
                         <label>Nombre Completo</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-user"></i>
-                            <input type="text" name="nombre" required placeholder="Ej. Santiago Mendoza Ruiz">
+                            <input type="text" name="nombre" required data-validar="letras" data-label="Nombre" placeholder="Ej. Santiago Mendoza Ruiz">
                         </div>
                     </div>
 
@@ -118,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Correo Electrónico</label>
                         <div class="input-with-icon">
                             <i class="fa-regular fa-envelope"></i>
-                            <input type="email" name="correo" placeholder="cliente@correo.com">
+                            <input type="email" name="correo" data-validar="email" data-label="Correo" placeholder="cliente@correo.com">
                         </div>
                     </div>
 
@@ -126,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Teléfono de Contacto</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-phone"></i>
-                            <input type="text" name="telefono" placeholder="Ej. +57 300 123 4567">
+                            <input type="text" name="telefono" data-validar="telefono" data-label="Teléfono" placeholder="Ej. +57 300 123 4567">
                         </div>
                     </div>
 
@@ -149,5 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
+    <?php notificaciones($error); ?>
 </body>
 </html>

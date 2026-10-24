@@ -2,6 +2,7 @@
 session_start();
 require_once '../config/conexion.php';
 require_once '../config/seguridad.php';
+require_once '../config/validaciones.php';
 
 if (isset($_SESSION['usuario_id'])) {
     header("Location: ../modulos/panel.php");
